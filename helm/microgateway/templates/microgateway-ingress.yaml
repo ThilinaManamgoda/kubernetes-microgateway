@@ -26,9 +26,9 @@ metadata:
 spec:
   tls:
     - hosts:
-        - {{ .Release.Name }}
+        - {{ .Release.Name }}.mbie.wso2support.com
   rules:
-    - host: {{ .Release.Name }}
+    - host: {{ .Release.Name }}.mbie.wso2support.com
       http:
         paths:
           - path: /

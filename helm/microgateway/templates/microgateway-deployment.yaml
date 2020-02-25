@@ -18,12 +18,12 @@ metadata:
   name: wso2micro-gw-deployment
   namespace : {{ .Release.Namespace }}
 spec:
-  replicas: {{ default 1 .Values.wso2.deployment.wso2microgw.replicas }}
-  minReadySeconds: {{ default 30 .Values.wso2.deployment.wso2microgw.minReadySeconds }}
+  replicas: {{ .Values.wso2.deployment.wso2microgw.replicas }}
+  minReadySeconds: {{ .Values.wso2.deployment.wso2microgw.minReadySeconds }}
   strategy:
     rollingUpdate:
-      maxSurge: {{ default 1 .Values.wso2.deployment.wso2microgw.strategy.rollingUpdate.maxSurge }}
-      maxUnavailable: {{ default 0 .Values.wso2.deployment.wso2microgw.strategy.rollingUpdate.maxUnavailable }}
+      maxSurge: {{ .Values.wso2.deployment.wso2microgw.strategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.wso2.deployment.wso2microgw.strategy.rollingUpdate.maxUnavailable }}
     type: RollingUpdate
   selector:
     matchLabels:
@@ -53,11 +53,11 @@ spec:
       containers:
       - name: wso2micro-gw
         {{ if not (eq .Values.wso2.deployment.wso2microgw.dockerRegistry "") }}
-        image: {{ .Values.wso2.deployment.wso2microgw.dockerRegistry }}/{{ default "wso2micro-gw" .Values.wso2.deployment.wso2microgw.imageName }}
+        image: {{ .Values.wso2.deployment.wso2microgw.dockerRegistry }}/{{ .Values.wso2.deployment.wso2microgw.imageName }}
         {{- $tag := .Values.wso2.deployment.wso2microgw.imageTag }}
         {{- if not (eq $tag "") }}{{- printf ":%s" $tag -}}{{- end }}
         {{ else }}
-        image: wso2/{{ default "wso2micro-gw" .Values.wso2.deployment.wso2microgw.imageName }}:{{ default "3.0.1" .Values.wso2.deployment.wso2microgw.imageTag }}
+        image: wso2/{{ .Values.wso2.deployment.wso2microgw.imageName }}:{{ .Values.wso2.deployment.wso2microgw.imageTag }}
         {{ end }}
         livenessProbe:
           exec:
@@ -65,16 +65,16 @@ spec:
               - /bin/sh
               - -c
               - nc -z localhost 9095
-          initialDelaySeconds: {{ default 10 .Values.wso2.deployment.wso2microgw.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ default 10 .Values.wso2.deployment.wso2microgw.livenessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.wso2.deployment.wso2microgw.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.wso2.deployment.wso2microgw.livenessProbe.periodSeconds }}
         readinessProbe:
           exec:
             command:
               - /bin/sh
               - -c
               - nc -z localhost 9095
-          initialDelaySeconds: {{ default 10 .Values.wso2.deployment.wso2microgw.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ default 10 .Values.wso2.deployment.wso2microgw.readinessProbe.periodSeconds }}
+          initialDelaySeconds: {{ .Values.wso2.deployment.wso2microgw.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.wso2.deployment.wso2microgw.readinessProbe.periodSeconds }}
         resources:
           requests:
             memory: {{ .Values.wso2.deployment.wso2microgw.resources.requests.memory }}
@@ -87,14 +87,22 @@ spec:
           - /bin/bash
           - "-c"
           - /home/ballerina/init/init.sh
-        securityContext:
-          runAsUser: 100
         ports:
         - containerPort: 9090
           protocol: TCP
         - containerPort: 9095
           protocol: TCP
         env:
+        - name: analytics_username
+          valueFrom:
+            secretKeyRef:
+              name: analytics-creds
+              key: username
+        - name: analytics_password
+          valueFrom:
+            secretKeyRef:
+              name: analytics-creds
+              key: password
         - name: PROJECT
           value: {{ .Values.wso2.deployment.wso2microgw.projectName }}
         {{- range $key, $val := .Values.wso2.microgatewayConfigurations }}
@@ -110,7 +118,7 @@ spec:
           subPath: init.sh
         {{ if .Values.wso2.centralizedLogging.enabled }}
         - name: shared-logs
-          mountPath: home/ballerina/logs
+          mountPath: /home/ballerina/wso2/logs
       - name: wso2micro-gw-logstash
         image: docker.elastic.co/logstash/logstash:{{ default "7.2.0" .Values.wso2.centralizedLogging.logstash.imageTag }}
         volumeMounts:
@@ -142,7 +150,7 @@ spec:
                 name: logstash-elasticsearch-creds
                 key: password
           - name: ELASTICSEARCH_HOST
-            value: {{ default "wso2-elasticsearch-master" .Values.wso2.centralizedLogging.logstash.elasticsearch.host }}
+            value: {{ .Values.wso2.centralizedLogging.logstash.elasticsearch.host }}
             {{ end }}
       {{ if and (not (eq .Values.wso2.subscription.username "")) (not (eq .Values.wso2.subscription.password "")) }}
       imagePullSecrets:
@@ -156,6 +164,9 @@ spec:
           configMap:
             name: microgateway-logging
             defaultMode: 0777
+        - name: analytics-creds
+          secret:
+            secretName: analytics-creds
         {{ if .Values.wso2.centralizedLogging.enabled }}
         - name: shared-logs
           emptyDir: {}
